@@ -17,22 +17,22 @@ from tqdm import tqdm
 pi = np.pi
 
 
-def example_1d_density(v: torch.Tensor, beta: float):
+def example_1d_density(v: torch.Tensor, beta: float, lamda=1.):
     
     assert (v <= .5).all() and (v >= -.5).all()
+
+    v = lamda * v
 
     g = torch.zeros_like(v)
     g[v < 0] = (1 - (-2*v[v < 0])**beta)
     g[v >= 0] = (1 - (2*v[v >= 0])**(beta + 1))
 
-    return g
+    return lamda * g
 
 
-def example_2d_density(v: torch.Tensor, u: torch.Tensor, beta: float):
-    
-    gu = example_1d_density(u, beta)
-    gv = example_1d_density(v, beta)
-
+def example_2d_density(v: torch.Tensor, u: torch.Tensor, beta: float, lamda=1.):
+    gu = example_1d_density(u, beta, lamda=lamda)
+    gv = example_1d_density(v, beta, lamda=lamda)
     return gu * gv
 
 
@@ -95,35 +95,37 @@ def plot_example_1d_densities(savepath=None):
     plt.show()
 
 
-def examlpe_1d_density_sampling(beta, n_pts):
-    unnormed_g = partial(example_1d_density, beta=beta)
+def examlpe_1d_density_sampling(beta, n_pts, lamda=1.):
+    unnormed_g = partial(example_1d_density, beta=beta, lamda=lamda)
 
-    pts = torch.zeros(n_pts)
+    pts = torch.zeros(n_pts, 1)
     cnt = 0
     while cnt < n_pts:
-        u = random.random()
-        v = torch.rand(1) -.5
-        if u < unnormed_g(v) / 1.:
-           pts[cnt] = v 
-           cnt += 1
-    return pts
+        pts_ = torch.zeros(n_pts)
+        u = torch.rand(n_pts)
+        # u = random.random()
+        v = torch.rand(n_pts) -.5
+        acc = u < unnormed_g(v) / 1.
+        pts_[acc] = v[acc]
+        pts_ = pts_[torch.nonzero(pts_)][:n_pts - cnt]
+        pts[cnt : cnt + pts_.shape[0]] = pts_
+        cnt += pts_.shape[0]
+        # if u < unnormed_g(v) / 1.:
+        #    pts[cnt] = v 
+        #    cnt += 1
+    return pts[:, 0]
 
 
-def example_2d_density_sampling(beta, n_pts):
-    unnormed_g = partial(example_1d_density, beta=beta)
+def example_2d_density_sampling(beta, n_pts, lamda=1.):
+    unnormed_g = partial(example_1d_density, beta=beta, lamda=lamda)
 
     pts = torch.zeros(n_pts, 2)
-    pts[:, 0] = examlpe_1d_density_sampling(beta, n_pts)
-    pts[:, 1] = examlpe_1d_density_sampling(beta, n_pts)
-
+    pts[:, 0] = examlpe_1d_density_sampling(beta, n_pts, lamda=lamda)
+    pts[:, 1] = examlpe_1d_density_sampling(beta, n_pts, lamda=lamda)
     return pts
 
 
 def example_parametric_curve(v, a, w):
-    # if isinstance(v, float):
-    #     return np.hstack((np.cos(2*pi*v) + a * np.cos(2*pi*w*v), np.sin(2*pi*v) + a * np.sin(2*pi*w*v)))
-    #     #v = torch.tensor([v])
-    # v = torch.tensor(v)
     if isinstance(v, np.ndarray):
         return np.vstack((np.cos(2*pi*v) + a * np.cos(2*pi*w*v), np.sin(2*pi*v) + a * np.sin(2*pi*w*v))).T
 
@@ -136,10 +138,12 @@ def example_parametric_curve(v, a, w):
 
 def example_parametric_surface(v, u, a, b, w):
     if isinstance(v, np.ndarray):
-        return np.vstack((np.cos(2*pi*v) + a * np.cos(2*pi*w*v), np.sin(2*pi*v) + a * np.sin(2*pi*w*v))).T
+        return NotImplementedError
+        #return np.vstack((np.cos(2*pi*v) + a * np.cos(2*pi*w*v), np.sin(2*pi*v) + a * np.sin(2*pi*w*v))).T
 
     elif isinstance(v, jnp.ndarray):
-        return jnp.vstack((jnp.cos(2*pi*v) + a * jnp.cos(2*pi*w*v), jnp.sin(2*pi*v) + a * jnp.sin(2*pi*w*v))).T
+        return NotImplementedError
+        #return jnp.vstack((jnp.cos(2*pi*v) + a * jnp.cos(2*pi*w*v), jnp.sin(2*pi*v) + a * jnp.sin(2*pi*w*v))).T
 
     elif isinstance(v, torch.Tensor):
         return torch.stack((
@@ -147,4 +151,3 @@ def example_parametric_surface(v, u, a, b, w):
             (b+torch.cos(2*pi*v))*torch.sin(2*pi*u) + a * torch.cos(2*pi*w*v),
             torch.sin(2*pi*v) + a * torch.sin(2*pi*w*u)
             ), dim=1)
-
