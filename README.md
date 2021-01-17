@@ -6,4 +6,4 @@ Implementation of the method for Density Estimation on an Unknown Submanifold fr
 
 ![alt text][logo]
 
-[logo]: https://github.com/sverdoot/density-estimation-unknown-submanifold/master/figs/1d_manifold_experiment_l=2.png "Convergence on 1d submanifold, optimal bandwidth"
+[logo]: https://github.com/sverdoot/density-estimation-unknown-submanifold/raw/master/figs/1d_manifold_experiment_l=2.png "Convergence on 1d submanifold, optimal bandwidth"
