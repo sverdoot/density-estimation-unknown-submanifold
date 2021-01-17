@@ -24,8 +24,8 @@ def example_1d_density(v: torch.Tensor, beta: float, lamda=1.):
     v = lamda * v
 
     g = torch.zeros_like(v)
-    g[v < 0] = (1 - (-2*v[v < 0])**beta)
-    g[v >= 0] = (1 - (2*v[v >= 0])**(beta + 1))
+    g[(v < 0) * (v >= -.5)] = (1 - (-2*v[(v < 0) * (v >= -.5)])**beta)
+    g[(v >= 0) * (v <= .5)] = (1 - (2*v[(v >= 0) * (v <= .5)])**(beta + 1))
 
     return lamda * g
 
@@ -45,18 +45,18 @@ def compute_norm_constant(density_f: callable, min_value, max_value, n_pts=1000)
     return norm_const
 
 
-def plot_example_1d_density(beta: float, linestyle='-'):
+def plot_example_1d_density(beta: float, linestyle='-', lamda=1.):
     min_value = -.5
     max_value = .5
 
-    unnormed_g = partial(example_1d_density, beta=beta)
+    unnormed_g = partial(example_1d_density, beta=beta, lamda=lamda)
     norm_const = compute_norm_constant(unnormed_g, min_value, max_value, n_pts=1000)
 
     linsp = torch.linspace(min_value, max_value, 1000)
     values = unnormed_g(linsp) / norm_const
 
     plt.plot(linsp.numpy(), values.numpy(), label=fr'$\beta={beta}$', linestyle=linestyle)
-
+    return values.max()
 
 def plot_example_2d_density(ax, beta: float, linestyle='-'):
     min_value = -.5
@@ -78,16 +78,17 @@ def plot_example_2d_density(ax, beta: float, linestyle='-'):
     return surf
 
 
-def plot_example_1d_densities(savepath=None):
+def plot_example_1d_densities(savepath=None, lamda=1.):
     fig = plt.figure(figsize=(5,4))
 
-    plot_example_1d_density(beta=2., linestyle='-')
-    plot_example_1d_density(beta=4., linestyle='--')
-    plot_example_1d_density(beta=8., linestyle='-.')
+    maxd1 = plot_example_1d_density(beta=2., linestyle='-', lamda=lamda)
+    maxd2 = plot_example_1d_density(beta=4., linestyle='--', lamda=lamda)
+    maxd3 = plot_example_1d_density(beta=8., linestyle='-.', lamda=lamda)
+    maxd = max(maxd1, maxd2, maxd3)
 
     plt.hlines(0, -.5, .5, linestyle='--', color='black', alpha=.5)
-    plt.vlines(0, 0, 2., linestyle='--', color='black', alpha=.5)
-    plt.ylim(-.05, 1.5)
+    plt.vlines(0, 0, maxd+.5, linestyle='--', color='black', alpha=.5)
+    plt.ylim(-.05, maxd+.5)
 
     plt.legend()
     if savepath is not None:
@@ -95,7 +96,7 @@ def plot_example_1d_densities(savepath=None):
     plt.show()
 
 
-def examlpe_1d_density_sampling(beta, n_pts, lamda=1.):
+def example_1d_density_sampling(beta, n_pts, lamda=1.):
     unnormed_g = partial(example_1d_density, beta=beta, lamda=lamda)
 
     pts = torch.zeros(n_pts, 1)
@@ -103,16 +104,12 @@ def examlpe_1d_density_sampling(beta, n_pts, lamda=1.):
     while cnt < n_pts:
         pts_ = torch.zeros(n_pts)
         u = torch.rand(n_pts)
-        # u = random.random()
         v = torch.rand(n_pts) -.5
         acc = u < unnormed_g(v) / 1.
         pts_[acc] = v[acc]
         pts_ = pts_[torch.nonzero(pts_)][:n_pts - cnt]
         pts[cnt : cnt + pts_.shape[0]] = pts_
         cnt += pts_.shape[0]
-        # if u < unnormed_g(v) / 1.:
-        #    pts[cnt] = v 
-        #    cnt += 1
     return pts[:, 0]
 
 
@@ -120,8 +117,8 @@ def example_2d_density_sampling(beta, n_pts, lamda=1.):
     unnormed_g = partial(example_1d_density, beta=beta, lamda=lamda)
 
     pts = torch.zeros(n_pts, 2)
-    pts[:, 0] = examlpe_1d_density_sampling(beta, n_pts, lamda=lamda)
-    pts[:, 1] = examlpe_1d_density_sampling(beta, n_pts, lamda=lamda)
+    pts[:, 0] = example_1d_density_sampling(beta, n_pts, lamda=lamda)
+    pts[:, 1] = example_1d_density_sampling(beta, n_pts, lamda=lamda)
     return pts
 
 
@@ -139,11 +136,9 @@ def example_parametric_curve(v, a, w):
 def example_parametric_surface(v, u, a, b, w):
     if isinstance(v, np.ndarray):
         return NotImplementedError
-        #return np.vstack((np.cos(2*pi*v) + a * np.cos(2*pi*w*v), np.sin(2*pi*v) + a * np.sin(2*pi*w*v))).T
 
     elif isinstance(v, jnp.ndarray):
         return NotImplementedError
-        #return jnp.vstack((jnp.cos(2*pi*v) + a * jnp.cos(2*pi*w*v), jnp.sin(2*pi*v) + a * jnp.sin(2*pi*w*v))).T
 
     elif isinstance(v, torch.Tensor):
         return torch.stack((

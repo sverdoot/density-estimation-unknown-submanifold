@@ -49,12 +49,13 @@ class Kernel(object):
         max_val = torch.max(torch.abs(k)).item()
         return max_val
 
-    def __call__(self, z, l=None):
+    def __call__(self, z, l=None, d=None):
         l = self.l if l is None else l
+        d = self.d #if d is None else d
         if l == 1:
             return Kernel.initial_kernel(z, self.lambda_d)
         else:
-            return 2**(1. + float(self.d) / l) * self(2**(1. / self.l) * z, l - 1) - self(z, l - 1)
+            return 2**(1. + float(d) / l) * self(2**(1. / l) * z, l - 1, d) - self(z, l - 1, d)
 
 
 def kernel_estimator(x, sample, bandwidth, kernel): # l, d, lambda_d=None):
@@ -62,7 +63,10 @@ def kernel_estimator(x, sample, bandwidth, kernel): # l, d, lambda_d=None):
         x = x.unsqueeze(0)
         sample = sample.unsqueeze(0)
     d = kernel.d
-    f = 1./(bandwidth**d) * kernel((x[:, None, :] - sample) / bandwidth).mean(-1)
+    if isinstance(bandwidth, (int, float, complex)):
+        f = 1./(bandwidth**d) * (kernel((x[:, None, :] - sample) / bandwidth).mean(-1))
+    else:
+        f = 1./(bandwidth**d) * (kernel((x[:, None, :] - sample) / bandwidth[:, None, None]).mean(-1))
     return f
 
 

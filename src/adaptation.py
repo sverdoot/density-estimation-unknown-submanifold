@@ -19,11 +19,12 @@ def omega(h, d, n, l, f_max, kernel_inf_norm):
     zeta = unit_ball_volume(d)
     k_inf_norm = kernel_inf_norm
     w = 4.**d * zeta * k_inf_norm ** 2 * f_max
-    omega = (2 * w / n / h ** d) **.5 + k_inf_norm / n / h**d
-    return omega #/ 10000.
+    omega_ = (2 * w / n / h ** d) **.5 + k_inf_norm / n / h**d
+    return omega_
 
 def omega2(h, d, n):
-    return (1./n/h**d)**.5
+    omega_ = (1./n/h**d)**.5
+    return omega_
 
 
 def lamda(h, d, theta):
@@ -40,9 +41,9 @@ def psy2(h, eta, d, n, l, f_max, kernel_inf_norm, theta):
         omega2(eta, d, n) * lamda(eta, d, theta)
 
 
-def select_bandwidth_lepski(x, sample, kernel, f_max, theta, npts=100):
+def select_bandwidth_lepski(x, sample, kernel, f_max, theta, npts=100, psy_type:int = 1):
     d, l, kernel_inf_norm = kernel.d, kernel.l, kernel.inf_norm
-    n = sample.shape[0]
+    n = sample.shape[1]
     lb = bandwidth_lower_bound(d, n, l, f_max, kernel_inf_norm)
     j = np.linspace(0, np.log(1./lb) / np.log(2.), npts)
     H = 2**(-j)[::-1]
@@ -51,7 +52,16 @@ def select_bandwidth_lepski(x, sample, kernel, f_max, theta, npts=100):
     f_etas = np.empty([x.shape[0]])
     for i, h in enumerate(H):
         etas = H[:i+1]
-        psys = psy(h, etas, d, n, l, f_max, kernel_inf_norm, theta)
+        
+        if psy_type == 1:
+            psy_f = psy
+        elif psy_type == 2:
+            psy_f = psy2
+        else:
+            raise KeyError
+            
+        psys = psy_f(h, etas, d, n, l, f_max, kernel_inf_norm, theta)
+        
         f_h = kernel_estimator(x, sample, h, kernel).detach().cpu().numpy()
         if i == 0:
             f_etas = f_h.reshape(-1, 1)
